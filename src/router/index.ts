@@ -24,26 +24,43 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
-  //Esperamos a que cargue el usuario si es la primera vez
-  if (authStore.loading) await authStore.initAuth();
+  // 1. EL SEMÁFORO: Si la tienda dice "cargando", esperamos a Firebase
+  // Esto congela la navegación hasta que initAuth resuelva la promesa
+  if (authStore.loading) {
+    console.log("⏳ Router: Esperando a Firebase...");
+    await authStore.initAuth();
+    console.log("✅ Router: Firebase respondió.");
+  }
 
   const requiredRole = to.meta.role;
-  console.log('Required role', requiredRole);   
-  console.log('Auth user', authStore.userProfile?.role);
 
+  // 2. Ahora sí, con los datos cargados, decidimos
   if (requiredRole) {
-    //Si no esta logueado, redireccionamos al login
-    if (!!authStore.user) return next("/");
+    // ¿Hay usuario?
+    if (!authStore.user) {
+      console.warn("Router: Bloqueado (No User)");
+      return next("/");
+    }
 
-    //Si tiene rol, redireccionamos
-    if (authStore.userProfile?.role === requiredRole) {
-      next();
+    // ¿Tiene el rol correcto?
+    const currentRole = authStore.userProfile?.role;
+
+    if (currentRole === requiredRole) {
+      next(); // Pase usted
     } else {
-      //Si tiene otro rol
-      alert("Sin permisos");
+      console.warn(
+        `Router: Rol incorrecto. Se requiere ${requiredRole}, tienes ${currentRole}`
+      );
+      alert("No tienes permisos para ver esta sección");
       next("/");
     }
   } else {
+    // Rutas públicas (Login)
+    // Opcional: Si ya está logueado y va al Login, lo mandamos a su dashboard
+    if (to.path === "/" && authStore.user) {
+      if (authStore.userProfile?.role === "profesor") return next("/profesores");
+      if (authStore.userProfile?.role === "apoderado") return next("/apoderados");
+    }
     next();
   }
 });

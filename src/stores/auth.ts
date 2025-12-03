@@ -73,8 +73,9 @@ export const useAuthStore = defineStore('auth', () => {
 
     //Inicializar
     const initAuth = () => {
+        if(!loading.value) return Promise.resolve();
         return new Promise<void>((resolve)  =>{
-            onAuthStateChanged(auth, async (firebaseUser) => {
+            const unsuscribe = onAuthStateChanged(auth, async (firebaseUser) => {
                 if(firebaseUser){
                     user.value = firebaseUser;
                     await fetchUserProfile(firebaseUser);
@@ -85,6 +86,9 @@ export const useAuthStore = defineStore('auth', () => {
                 loading.value = false;
                 resolve();
             });
+            loading.value = true;
+            resolve();
+            unsuscribe();
         });
     }
 
@@ -94,6 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
         loading,
         login,
         logout,
-        initAuth
+        initAuth,
+        fetchUserProfile
     }
 });
